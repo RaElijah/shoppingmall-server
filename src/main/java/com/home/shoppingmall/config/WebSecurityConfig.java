@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -21,7 +20,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -38,14 +36,19 @@ public class WebSecurityConfig {
   @Autowired
   private JwtRequestFilter jwtRequestFilter;
 
-//  private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-//  private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+  private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+  private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
   private final TokenProvider tokenProvider;
   private final UserDetailService userService;
 
   @Bean
   public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  public BCryptPasswordEncoder bCryptPasswordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
@@ -70,25 +73,27 @@ public class WebSecurityConfig {
 
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http
-            .sessionManagement(sessionManagement -> // 세션 관리 설정
-                    sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 세션을 사용하지 않음
-            )
-            .authorizeHttpRequests(authorizeRequests -> // HTTP 요청에 대한 보안 규칙을 정의
-                    authorizeRequests
-                            .requestMatchers(
-                                    new AntPathRequestMatcher("/css/**"),
-                                    new AntPathRequestMatcher("/images/**"),
-                                    new AntPathRequestMatcher("/js/**"),
-                                    new AntPathRequestMatcher("/resources/**"),
-                                    new AntPathRequestMatcher("/auth/**"),
-                                    new AntPathRequestMatcher("/h2-console/**")
-                            ).permitAll() // 경로에 대한 접근을 허용
-                            .anyRequest().authenticated() // 그 외의 모든 요청은 인증을 요구
-            )
-            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class) // UsernamePasswordAuthenticationFilter 앞에 jwtRequestFilter 추가
-            .csrf(csrf -> csrf.disable());
-    return http.build(); // HTTP 보안 설정을 빌드하여 반환
+    return http
+            .httpBasic().and().csrf().disable()// token을 사용하는 방식이기 때문에 csrf를 disable합니다.
+            .exceptionHandling()
+            .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            .accessDeniedHandler(jwtAccessDeniedHandler)
+            .and()
+            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS) // jwt token으로 인증할것이므로 세션필요없으므로 생성안함.
+            .and()
+            .authorizeHttpRequests()
+            .requestMatchers(
+                    "/css/**",
+                    "/images/**",
+                    "/js/**",
+                    "/resources/**",
+                    "/auth/**",
+                    "/h2-console/**"
+            ).permitAll()
+            .anyRequest().authenticated()
+            .and()
+            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
   }
 
   @Bean
@@ -101,19 +106,15 @@ public class WebSecurityConfig {
     return source;
   }
 
-//  @Bean
-//  public AuthenticationManager authenticationManager(AuthenticationManagerBuilder builder) throws Exception {
-//    builder.userDetailsService(userService).passwordEncoder(bCryptPasswordEncoder());
-//    return builder.build();
-//  }
-
   @Bean
-  public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-    return authenticationConfiguration.getAuthenticationManager();
-  }
-
-  @Bean
-  public BCryptPasswordEncoder bCryptPasswordEncoder() {
-    return new BCryptPasswordEncoder();
+  public AuthenticationManager authenticationManager(
+          HttpSecurity http, BCryptPasswordEncoder bCryptPasswordEncoder,
+          UserDetailService userDetailService
+  ) throws Exception {
+    return http.getSharedObject(AuthenticationManagerBuilder.class)
+            .userDetailsService(userService)
+            .passwordEncoder(bCryptPasswordEncoder)
+            .and()
+            .build();
   }
 }
