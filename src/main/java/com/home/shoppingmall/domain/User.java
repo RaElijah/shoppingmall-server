@@ -31,8 +31,7 @@ public class User implements UserDetails {
   @Column(name = "password", nullable = false)
   private String password;
 
-  @Column(name = "role", nullable = false)
-  @ColumnDefault("USER")
+  @Column(name = "role", nullable = false, columnDefinition = "varchar(255) default 'USER'")
   private Role role;
 
   @Builder

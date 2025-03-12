@@ -1,53 +1,35 @@
 package com.home.shoppingmall.domain;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Getter
 @Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "products")
 public class Product {
 
     @Id
+    @Getter
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "product_id", updatable = false)
     private Long id;
+
+    @Column(name = "product_name", nullable = false)
     private String name;
+
+    @Column(name = "product_price", nullable = false)
     private double price;
+
+    @Column(name = "description", nullable = false)
     private String description;
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
+    @Builder
+    public Product(Long id, String name, double price, String description) {
         this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
         this.name = name;
-    }
-
-    public double getPrice() {
-        return price;
-    }
-
-    public void setPrice(double price) {
         this.price = price;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
         this.description = description;
     }
 }
